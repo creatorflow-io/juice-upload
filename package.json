@@ -1,6 +1,6 @@
 {
   "name": "@creatorflow-io/juice-upload",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Upload library for Juice Storage",
   "main": "src/JUpload.js",
   "scripts": {
@@ -38,8 +38,9 @@
     "test": "test"
   },
   "files": [
-    "./dist/jupload.js",
-    "./dist/jupload.js.LICENSE.txt",
+    "./dist/*.*",
+    "./public/*.*",
+    "./src/*.*",
     "./README.md"
   ]
 }

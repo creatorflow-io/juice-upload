@@ -1,5 +1,6 @@
 
- import {JUpload, FileExistsBehavior} from "../src/JUpload.js";
+// comment import to run in non-module mode
+ import {JUpload, FileExistsBehavior} from "../dist/JUpload.js";
 
 console.log(JUpload, FileExistsBehavior);
 
