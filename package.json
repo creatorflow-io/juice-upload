@@ -1,5 +1,5 @@
 {
-  "name": "@creatorflow-io/juice-upload",
+  "name": "@juice-js/upload",
   "version": "1.0.3",
   "description": "Upload library for Juice Storage",
   "main": "src/JUpload.js",
