@@ -1,10 +1,12 @@
 
 // comment import to run in non-module mode
- import {JUpload, FileExistsBehavior} from "../dist/JUpload.js";
+ import {JUpload, FileExistsBehavior, LogLevel} from "../dist/JUpload.js";
 
 console.log(JUpload, FileExistsBehavior);
 
-var uploader = new JUpload("https://localhost:7206/storage1");
+var uploader = new JUpload("https://localhost:7206/storage1", function(level, message){
+    console.log(LogLevel.name(level), message, arguments);
+});
 
 function clear() {
     history.pushState({ UploadId: "" }, "Upload ", "?");

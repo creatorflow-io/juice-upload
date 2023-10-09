@@ -1,14 +1,14 @@
-// const FileExistsBehavior = require( './FileExistsBehavior.js');
-// const Progress = require( './Progress.js');
-
-// const $ = require('jquery');
-
+import LogLevel from './LogLevel';
+import Logger from './Logger';
 import FileExistsBehavior from './FileExistsBehavior';
 import Progress from './Progress';
 import $ from 'jquery';
 
-function JUpload(endpoint) {
+function JUpload(endpoint, logging) {
     this._endpoint = endpoint || "/storage";
+    let that = this;
+    that.logger = new Logger(logging);
+    that.logger.log("JUpload initialized for "+ that._endpoint, 1, 2);
 }
 
 Object.defineProperty(JUpload.prototype, "uploadId", {
@@ -38,13 +38,12 @@ JUpload.prototype.upload = function (file, options) {
     let that = this;
 
     that._file = file;
-
     
     firstUpload.call(that, file, options)
     .then((completed, offset, result) => {
         that._initializedUpload = result;
 
-        console.log("File initialized", that._initializedUpload);
+        that.logger.log("File initialized", that._initializedUpload);
         if(completed){
             _successWithoutReport.call(that);
         }else{
@@ -52,7 +51,7 @@ JUpload.prototype.upload = function (file, options) {
                 try {
                     that.onupload(result);
                 } catch (e) {
-                    console.error("Failed to process onupload event", e);
+                    that.logger.error("Failed to process onupload event", e);
                 }
             }
             _startTrackingProgress.call(that, result.PackageSize - offset);
@@ -112,7 +111,7 @@ JUpload.prototype.resume = function (uploadId, file) {
 JUpload.prototype.abort = function () {
     let that = this;
     if (that._xhr) {
-        console.log("Aborting upload");
+        that.logger.log("Aborting upload");
         that._xhr.abort();
     }
 }
@@ -194,7 +193,7 @@ var firstUpload = function (file, options) {
 
     data.append("file", section);
 
-    console.debug("Upload section", file.size, sectionSize);
+    that.logger.debug("Upload section", file.size, sectionSize);
     var defer = $.Deferred();
     // store request to abort after
     that._xhr = $.ajax({
@@ -212,7 +211,7 @@ var firstUpload = function (file, options) {
                     that._sectionLoaded = evt.position || evt.loaded;
                     let progress = _calcProgress.call(that);
                     if (typeof that.onprogress === "function") {
-                        try { that.onprogress(progress); } catch (e) { console.error("Failed to process onprogress event"); }
+                        try { that.onprogress(progress); } catch (e) { that.logger.error("Failed to process onprogress event"); }
                     }
                 };
             }
@@ -223,18 +222,18 @@ var firstUpload = function (file, options) {
                 xhr.setRequestHeader("x-offset", 0);
             }
             catch (e) {
-                console.log("Failed to set headers before send");
-                console.error(e);
+                that.logger.log("Failed to set headers before send");
+                that.logger.error(e);
                 _error.call(that, e);
             }
         },
         complete: function (xhr, statusText) {
-            console.debug(xhr, statusText);
+            that.logger.debug(xhr, statusText);
             if (statusText === "abort") {
                 _abort.call(that);
             }
             else if(xhr.status === 200 || xhr.status === 204){
-                console.debug("Upload section completed", xhr.status, xhr.responseText, xhr.getResponseHeader("x-completed"), xhr.getAllResponseHeaders());
+                that.logger.debug("Upload section completed", xhr.status, xhr.responseText, xhr.getResponseHeader("x-completed"), xhr.getAllResponseHeaders());
                 let completed = xhr.getResponseHeader("x-completed")!=null && JSON.parse(xhr.getResponseHeader("x-completed").toLowerCase());
                 let offset = xhr.getResponseHeader("x-offset")!=null ? parseInt(xhr.getResponseHeader("x-offset")): null;
                 let configuration = xhr.responseText ? JSON.parse(xhr.responseText): null;
@@ -283,7 +282,7 @@ var doUpload = function (file, offset, sectionSize) {
 
     data.append("file", section);
 
-    console.debug("Upload section", section, offset, end, sectionSize, offset + sectionSize);
+    that.logger.log("Upload section", section, offset, end, sectionSize, offset + sectionSize);
 
     // store request to abort after
     that._xhr = $.ajax({
@@ -309,18 +308,19 @@ var doUpload = function (file, offset, sectionSize) {
                 xhr.setRequestHeader("x-offset", offset);
             }
             catch (e) {
-                console.log("Failed to set headers before send");
-                console.error(e);
+                that.logger.log("Failed to set headers before send");
+                that.logger.error(e);
                 _error.call(that, e);
             }
         },
         complete: function (xhr, statusText) {
-            console.debug(xhr, statusText);
+            that.logger.debug(xhr, statusText);
             if (statusText === "abort") {
                 _abort.call(that);
             }
             else if(xhr.status === 200 || xhr.status === 204){
-                console.debug("Upload section completed", xhr.status, xhr.responseText, xhr.getResponseHeader("x-completed"), xhr.getAllResponseHeaders());
+                that.logger.log("Upload section completed");
+                that.logger.debug(xhr.status, xhr.responseText, xhr.getResponseHeader("x-completed"), xhr.getAllResponseHeaders());
                 let completed = xhr.getResponseHeader("x-completed")!=null && JSON.parse(xhr.getResponseHeader("x-completed").toLowerCase());
                 if (completed) {
                     // server has completed the upload, so the client can stop uploading and no need to report success.
@@ -352,7 +352,7 @@ var resumeUpload = function (isManual) {
                 _startTrackingProgress.call(that, result.PackageSize - result.Offset);
             }
 
-            console.log("File resume initialized", that._initializedUpload);
+            that.logger.log("File resume initialized", that._initializedUpload);
             if (result) {
                 doUpload.call(that, file, result.Offset, result.SectionSize);
             }
@@ -385,7 +385,7 @@ var _error = function (error) {
     let that = this;
     _stopTrackingProgress.call(that);
 
-    console.error("Upload error", error);
+    that.logger.error("Upload error", error);
     if(typeof that.uploadId !== "undefined" && that.uploadId){
         try {
             $.ajax({
@@ -397,7 +397,7 @@ var _error = function (error) {
                 }
             });
         } catch (e) {
-            console.warn("Failed to report error to server");
+            that.logger.warn("Failed to report error to server");
         }
     }
     if (typeof that.onerror === "function") {
@@ -410,7 +410,7 @@ var _retry = function (error) {
     that._triedCount = that._triedCount || 0; // retry to upload for 3 times
     if (that._triedCount < 3) {
         that._triedCount++;
-        console.debug("Retry after 500ms", error);
+        that.logger.debug("Retry after 500ms", error);
 
         setTimeout(function () {
             resumeUpload.call(that);
@@ -427,7 +427,7 @@ var _abort = function () {
     _stopTrackingProgress.call(that);
 
     if (typeof that.onabort === "function") {
-        try { that.onabort(that._initializedUpload); } catch (e) { console.error("Failed to process onabort event"); }
+        try { that.onabort(that._initializedUpload); } catch (e) { that.logger.error("Failed to process onabort event"); }
     }
 }
 
@@ -436,15 +436,15 @@ var _startTrackingProgress = function (totalTransferSize) {
     that._startUploadTime = new Date();
     that._totalTransferSize = totalTransferSize;
     _stopTrackingProgress.call(that);
-    console.debug("Start tracking progress");
+    that.logger.debug("Start tracking progress");
     that._progressTimer = setInterval(function () {
         try{
             let progress = _calcProgress.call(that);
             if (typeof that.onprogress === "function") {
-                try { that.onprogress(progress); } catch (e) { console.error("Failed to process onprogress event"); }
+                try { that.onprogress(progress); } catch (e) { that.logger.error("Failed to process onprogress event"); }
             }
         }catch(e){
-            console.error("Failed to track progress", e);
+            that.logger.error("Failed to track progress", e);
         }
     }, 1000);
 }
@@ -453,12 +453,12 @@ var _stopTrackingProgress = function () {
     let that = this;
     try{
         if (that._progressTimer) {
-            console.debug("Stop tracking progress");
+            that.logger.debug("Stop tracking progress");
             clearInterval(that._progressTimer);
             that._progressTimer = null;
         }
     }catch(e){
-        console.error("Failed to stop tracking progress", e);
+        that.logger.error("Failed to stop tracking progress", e);
     }
 }
 
@@ -503,4 +503,4 @@ var _calcOverallProgress = function () {
     return new Progress(0, 0, totalTime, -1);
 }
 
-export { JUpload, FileExistsBehavior, Progress };
+export { JUpload, FileExistsBehavior, LogLevel, Progress };
